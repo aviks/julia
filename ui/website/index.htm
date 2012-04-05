@@ -11,6 +11,8 @@
         <script type="text/javascript" src="jquery.json.js"></script>
         <script type="text/javascript" src="jquery.autoresize.js"></script>
         <script type="text/javascript" src="d3.js"></script>
+        <script type="text/javascript"  src="jssockets/swfobject.js" language="javascript"></script>
+
         <script>
             /*
                 Some stuff to make the two columns extend to the bottom of the page.
@@ -381,28 +383,28 @@
             }
 
             // check the server for data
-            function poll() {
-                // send a poll message
-                outbox_queue.push([MSG_INPUT_POLL]);
-                process_outbox();
-            }
+            // function poll() {
+            //     // send a poll message
+            //     outbox_queue.push([MSG_INPUT_POLL]);
+            //     process_outbox();
+            // }
 
             // send the messages in the outbox
-            function process_outbox() {
-                // don't make new requests if we're waiting for old ones
-                if (!waiting_for_response) {
+            function process_outbox() {                
                     // don't send a request if there are no messages
                     if (outbox_queue.length > 0) {
                         // don't send any more requests while we're waiting for this one
-                        waiting_for_response = true;
+                        //waiting_for_response = true;
 
                         // send the messages
-                        $.post("/repl.scgi", {"request": $.toJSON(outbox_queue)}, callback, "json");
+                        //$.post("/repl.scgi", {"request": $.toJSON(outbox_queue)}, callback, "json");
+                       
+                        _jssocket.write('@repl '+ $.toJSON({queue: outbox_queue})+'\0');
+                        //_jssocket.write('@repl '+$.toJSON(outbox_queue)+'\0');
                     }
 
                     // we sent all the messages at once so clear the outbox
                     outbox_queue = [];
-                }
             }
 
             // process the messages in the inbox
@@ -777,7 +779,7 @@
                     return;
 
                 // allow sending new messages
-                waiting_for_response = false;
+                //waiting_for_response = false;
 
                 // add the messages to the inbox
                 inbox_queue = inbox_queue.concat(data);
@@ -789,11 +791,40 @@
                 process_outbox();
 
                 // poll the server again shortly
-                setTimeout(poll, poll_interval);
+                //setTimeout(poll, poll_interval);
+            }
+            var _jssocket = null;
+            function jssocket_init()
+            {
+                // This is the id/name of the flash object
+                _jssocket = document.getElementById("mymovie");
+                _jssocket.connect($(location).attr('hostname'),$(location).attr('port'));
+
+                // start session on connect
+                _jssocket.setCallBack("connect","init_session");
+                _jssocket.setCallBack("disconnect","jssocket_disconnect");
+                _jssocket.setCallBack("recieve","callback");
+                _jssocket.setCallBack("ioerror","jssocket_ioerror");
+            }
+
+            function jssocket_ioerror()
+            {
+
+                alert("IOError on JS Socket")
+            }
+
+            function jssocket_disconnect()
+            {
+
+                alert("Disconnect on JS Socket")
             }
 
             // called on page load
             $(document).ready(function() {
+                var so = new SWFObject("jssockets/JsSocket.swf", "mymovie", "470", "200", "8", "#FFFFFF");
+                so.addParam("allowScriptAccess", "always");
+                so.write("flashcontent");
+
                 // apply the autoresize plugin to the textarea
                 $("#terminal-input").autoResize({ animate: false, maxHeight: 1000, onAfterResize: function() {
                     setTimeout(function() { $("#terminal-form").prop("scrollTop", $("#terminal-form").prop("scrollHeight")); }, 100);
@@ -890,11 +921,15 @@
                 $("#terminal-form").prop("scrollTop", $("#terminal-form").prop("scrollHeight"));
 
                 // start polling the server
-                init_session();
+                //init_session();
+
             });
         </script>
     </head>
     <body>
+        <div id="flashcontent">
+            This text is replaced by the Flash movie.
+        </div>
         <div id="main">
             <div id="left-column">
                 <h1>The Julia Language</h1>
